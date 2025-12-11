@@ -97,39 +97,51 @@ jobs:
       id: test-run
       run: |
         set +e
-        npx playwright test --project=chromium --reporter=line,allure-playwright
-        TEST_EXIT_CODE=$?
+        # Run tests and capture output
+        npx playwright test --project=chromium --reporter=line,json,allure-playwright 2>&1 | tee test-output.log
+        TEST_EXIT_CODE=${PIPESTATUS[0]}
+        
         echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
         if [ $TEST_EXIT_CODE -eq 0 ]; then
           echo "status=passed" >> $GITHUB_OUTPUT
         else
           echo "status=failed" >> $GITHUB_OUTPUT
         fi
+        
+        # Parse test counts from output (format: "X passed, Y failed, Z skipped")
+        # Look for the summary line at the end
+        SUMMARY=$(grep -E "^\s*[0-9]+ (passed|failed|skipped)" test-output.log | tail -1 || echo "")
+        echo "Summary line: $SUMMARY"
+        
+        # Extract counts using regex
+        PASSED=$(echo "$SUMMARY" | grep -oE "[0-9]+ passed" | grep -oE "[0-9]+" || echo "0")
+        FAILED=$(echo "$SUMMARY" | grep -oE "[0-9]+ failed" | grep -oE "[0-9]+" || echo "0")
+        SKIPPED=$(echo "$SUMMARY" | grep -oE "[0-9]+ skipped" | grep -oE "[0-9]+" || echo "0")
+        
+        # Default to 0 if empty
+        PASSED=${PASSED:-0}
+        FAILED=${FAILED:-0}
+        SKIPPED=${SKIPPED:-0}
+        
+        echo "Parsed: passed=$PASSED, failed=$FAILED, skipped=$SKIPPED"
+        echo "passed=$PASSED" >> $GITHUB_OUTPUT
+        echo "failed=$FAILED" >> $GITHUB_OUTPUT
+        echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+        
         exit 0  # Allow workflow to continue
       env:
         KEYCLOAK_USERNAME: ${{ secrets.KEYCLOAK_USERNAME }}
         KEYCLOAK_PASSWORD: ${{ secrets.KEYCLOAK_PASSWORD }}
         KEYCLOAK_URL: ${{ secrets.KEYCLOAK_URL }}
 
-    # Determine test counts from results
-    - name: Check test results
-      id: test-status
+    # Debug: Show parsed results
+    - name: Show test results
       run: |
-        if [ -f "test-results/results.json" ]; then
-          # Try to parse JSON, with fallbacks
-          PASSED=$(cat test-results/results.json | jq '.stats.expected // .suites[0].specs | length // 0' 2>/dev/null || echo "0")
-          FAILED=$(cat test-results/results.json | jq '.stats.unexpected // 0' 2>/dev/null || echo "0")
-          SKIPPED=$(cat test-results/results.json | jq '.stats.skipped // 0' 2>/dev/null || echo "0")
-          echo "passed=$PASSED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
-          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
-        else
-          echo "passed=0" >> $GITHUB_OUTPUT
-          echo "failed=0" >> $GITHUB_OUTPUT
-          echo "skipped=0" >> $GITHUB_OUTPUT
-        fi
-        # Use the status from test-run step
-        echo "status=${{ steps.test-run.outputs.status }}" >> $GITHUB_OUTPUT
+        echo "🧪 Test Results:"
+        echo "   Status: ${{ steps.test-run.outputs.status }}"
+        echo "   Passed: ${{ steps.test-run.outputs.passed }}"
+        echo "   Failed: ${{ steps.test-run.outputs.failed }}"
+        echo "   Skipped: ${{ steps.test-run.outputs.skipped }}"
         
     - name: Generate Allure Report
       if: always()
@@ -190,11 +202,11 @@ jobs:
         secure: true
         username: ${{ secrets.SMTP_USERNAME }}
         password: ${{ secrets.SMTP_PASSWORD }}
-        subject: "${{ steps.test-status.outputs.status == 'passed' && '✅' || '❌' }} Keycloak Tests ${{ steps.test-status.outputs.status == 'passed' && 'PASSED' || 'FAILED' }} - ${{ github.repository }}"
+        subject: "${{ steps.test-run.outputs.status == 'passed' && '✅' || '❌' }} Keycloak Tests ${{ steps.test-run.outputs.status == 'passed' && 'PASSED' || 'FAILED' }} - ${{ github.repository }}"
         to: farid.andika@loglines.co
         from: "GitHub Actions <${{ secrets.SMTP_USERNAME }}>"
         html_body: |
-          <h2>${{ steps.test-status.outputs.status == 'passed' && '✅ Test Run Passed' || '❌ Test Run Failed' }}</h2>
+          <h2>${{ steps.test-run.outputs.status == 'passed' && '✅ Test Run Passed' || '❌ Test Run Failed' }}</h2>
           <p><strong>Repository:</strong> ${{ github.repository }}</p>
           <p><strong>Branch:</strong> ${{ github.ref_name }}</p>
           <p><strong>Commit:</strong> ${{ github.sha }}</p>
@@ -203,9 +215,9 @@ jobs:
           <hr>
           <h3>📊 Test Results:</h3>
           <ul>
-            <li>✅ Passed: ${{ steps.test-status.outputs.passed }}</li>
-            <li>❌ Failed: ${{ steps.test-status.outputs.failed }}</li>
-            <li>⏭️ Skipped: ${{ steps.test-status.outputs.skipped }}</li>
+            <li>✅ Passed: ${{ steps.test-run.outputs.passed }}</li>
+            <li>❌ Failed: ${{ steps.test-run.outputs.failed }}</li>
+            <li>⏭️ Skipped: ${{ steps.test-run.outputs.skipped }}</li>
           </ul>
           <hr>
           <p>📈 <a href="https://faridandika.github.io/limajari-automation-testing/">View Allure Report</a></p>
