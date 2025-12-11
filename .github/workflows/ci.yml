@@ -14,8 +14,8 @@ permissions:
 
 jobs:
   test-and-deploy:
-    # Using self-hosted runner on your Mac device
-    runs-on: self-hosted
+    # Using GitHub-hosted runner
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
@@ -83,7 +83,7 @@ jobs:
         echo "=============================================="
         echo ""
         echo "🌐 PUBLIC ALLURE REPORT:"
-        echo "   https://farid-again.github.io/playwright-test-automation-limajariUI/"
+        echo "   https://faridandika.github.io/limajari-automation-testing/"
         echo ""
         echo "📂 LOCAL REPORTS:"
         echo "   Allure: $(pwd)/allure-report"
