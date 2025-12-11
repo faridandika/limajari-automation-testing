@@ -1,0 +1,97 @@
+name: Keycloak Automation Tests
+
+on:
+  workflow_dispatch: # Allow manual triggering
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  test-and-deploy:
+    # Using self-hosted runner on your Mac device
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Playwright browsers
+      run: npx playwright install chromium
+      
+    - name: Install Allure CLI
+      run: |
+        npm install -g allure-commandline || true
+        mkdir -p allure-results
+        
+    - name: Run Playwright tests
+      run: |
+        npx playwright test --project=chromium --reporter=line,allure-playwright
+      continue-on-error: true
+      env:
+        KEYCLOAK_USERNAME: ${{ secrets.KEYCLOAK_USERNAME }}
+        KEYCLOAK_PASSWORD: ${{ secrets.KEYCLOAK_PASSWORD }}
+        KEYCLOAK_URL: ${{ secrets.KEYCLOAK_URL }}
+        
+    - name: Generate Allure Report
+      if: always()
+      run: |
+        npx allure generate allure-results --clean --output allure-report || true
+        
+    - name: Prepare report for GitHub Pages
+      if: always()
+      run: |
+        mkdir -p public-report
+        # Copy Allure report (which has its own index.html)
+        cp -r allure-report/* public-report/ || true
+        # Add .nojekyll to prevent Jekyll processing
+        touch public-report/.nojekyll
+        echo "📂 Report files ready for deployment:"
+        ls -la public-report/
+
+    - name: Deploy to GitHub Pages
+      if: always() && github.ref == 'refs/heads/main'
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./public-report
+        force_orphan: true
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        commit_message: '🚀 Deploy Allure Report - ${{ github.sha }}'
+
+    - name: Display Report URLs
+      if: always()
+      run: |
+        echo "=============================================="
+        echo "✅ DEPLOYMENT COMPLETED!"
+        echo "=============================================="
+        echo ""
+        echo "🌐 PUBLIC ALLURE REPORT:"
+        echo "   https://farid-again.github.io/playwright-test-automation-limajariUI/"
+        echo ""
+        echo "📂 LOCAL REPORTS:"
+        echo "   Allure: $(pwd)/allure-report"
+        echo "   Playwright: $(pwd)/playwright-report"
+        echo "=============================================="
+
+    - name: Show Test Summary
+      if: always()
+      run: |
+        echo "📋 Test Results Summary:"
+        cat test-results/.last-run.json 2>/dev/null || echo "No test results found"

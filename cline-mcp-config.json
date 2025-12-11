@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["playwright-mcp-server"],
+      "env": {
+        "PLAYWRIGHT_HEADLESS": "true",
+        "PLAYWRIGHT_BROWSER": "chromium"
+      },
+      "description": "Playwright MCP Server for browser automation and testing"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-filesystem", "/Users/obo/Desktop/keycloak-automation-testing"],
+      "description": "Filesystem access for the keycloak automation testing project"
+    },
+    "inspector": {
+      "command": "mcp-inspector",
+      "description": "MCP Inspector for debugging and monitoring MCP connections"
+    }
+  }
+}

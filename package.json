@@ -1,0 +1,41 @@
+{
+  "name": "keycloak-automation-testing",
+  "version": "1.0.0",
+  "description": "Automation testing for Keycloak login using Playwright with Page Object Model",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report",
+    "test:allure": "playwright test --reporter=@allure-playwright/reporter",
+    "allure:generate": "allure generate allure-results --clean --output allure-report",
+    "allure:open": "allure open allure-report",
+    "install:browsers": "playwright install",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit"
+  },
+  "keywords": [
+    "automation",
+    "testing",
+    "playwright",
+    "keycloak",
+    "page-object-model"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@modelcontextprotocol/inspector": "^0.17.2",
+    "@modelcontextprotocol/server-filesystem": "^2025.8.21",
+    "@playwright/test": "^1.56.1",
+    "dotenv": "^17.2.3",
+    "playwright-mcp-server": "^1.0.0"
+  },
+  "devDependencies": {
+    "allure-commandline": "^2.34.1",
+    "allure-playwright": "^3.4.2"
+  }
+}
