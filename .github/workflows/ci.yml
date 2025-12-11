@@ -179,9 +179,9 @@ jobs:
       if: failure() || steps.test-status.outputs.status == 'failed'
       uses: dawidd6/action-send-mail@v3
       with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        secure: false
+        server_address: mail.spacemail.com
+        server_port: 465
+        secure: true
         username: ${{ secrets.SMTP_USERNAME }}
         password: ${{ secrets.SMTP_PASSWORD }}
         subject: "❌ Keycloak Tests FAILED - ${{ github.repository }}"
@@ -210,9 +210,9 @@ jobs:
       if: success() && github.event_name == 'schedule' && steps.test-status.outputs.status == 'passed'
       uses: dawidd6/action-send-mail@v3
       with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        secure: false
+        server_address: mail.spacemail.com
+        server_port: 465
+        secure: true
         username: ${{ secrets.SMTP_USERNAME }}
         password: ${{ secrets.SMTP_PASSWORD }}
         subject: "✅ Keycloak Tests PASSED - Daily Report"
