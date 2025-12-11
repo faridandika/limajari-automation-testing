@@ -95,35 +95,41 @@ jobs:
         
     - name: Run Playwright tests
       id: test-run
-      run: npx playwright test --project=chromium --reporter=line,allure-playwright
-      continue-on-error: true
+      run: |
+        set +e
+        npx playwright test --project=chromium --reporter=line,allure-playwright
+        TEST_EXIT_CODE=$?
+        echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+        if [ $TEST_EXIT_CODE -eq 0 ]; then
+          echo "status=passed" >> $GITHUB_OUTPUT
+        else
+          echo "status=failed" >> $GITHUB_OUTPUT
+        fi
+        exit 0  # Allow workflow to continue
       env:
         KEYCLOAK_USERNAME: ${{ secrets.KEYCLOAK_USERNAME }}
         KEYCLOAK_PASSWORD: ${{ secrets.KEYCLOAK_PASSWORD }}
         KEYCLOAK_URL: ${{ secrets.KEYCLOAK_URL }}
 
-    # Determine test status
+    # Determine test counts from results
     - name: Check test results
       id: test-status
       run: |
         if [ -f "test-results/results.json" ]; then
-          PASSED=$(cat test-results/results.json | jq '.stats.expected // 0')
-          FAILED=$(cat test-results/results.json | jq '.stats.unexpected // 0')
-          SKIPPED=$(cat test-results/results.json | jq '.stats.skipped // 0')
+          # Try to parse JSON, with fallbacks
+          PASSED=$(cat test-results/results.json | jq '.stats.expected // .suites[0].specs | length // 0' 2>/dev/null || echo "0")
+          FAILED=$(cat test-results/results.json | jq '.stats.unexpected // 0' 2>/dev/null || echo "0")
+          SKIPPED=$(cat test-results/results.json | jq '.stats.skipped // 0' 2>/dev/null || echo "0")
           echo "passed=$PASSED" >> $GITHUB_OUTPUT
           echo "failed=$FAILED" >> $GITHUB_OUTPUT
           echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
-          if [ "$FAILED" -gt 0 ]; then
-            echo "status=failed" >> $GITHUB_OUTPUT
-          else
-            echo "status=passed" >> $GITHUB_OUTPUT
-          fi
         else
-          echo "status=unknown" >> $GITHUB_OUTPUT
           echo "passed=0" >> $GITHUB_OUTPUT
           echo "failed=0" >> $GITHUB_OUTPUT
           echo "skipped=0" >> $GITHUB_OUTPUT
         fi
+        # Use the status from test-run step
+        echo "status=${{ steps.test-run.outputs.status }}" >> $GITHUB_OUTPUT
         
     - name: Generate Allure Report
       if: always()
