@@ -1,6 +1,9 @@
 const { test, expect } = require('./fixtures/testFixtures');
 const { KeycloakLoginPage } = require('./pages/KeycloakLoginPage');
 
+// Detect CI environment - dashboard tests require localhost which isn't available in CI
+const isCI = !!process.env.CI;
+
 test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
     let keycloakPage;
 
@@ -8,7 +11,11 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
         keycloakPage = new KeycloakLoginPage(page);
     });
 
+    // Skip this test in CI as it requires localhost:3000 to be running
     test('TC023 - Verify dashboard loads after successful login', async ({ page, testData }) => {
+        // Skip in CI - requires localhost:3000
+        test.skip(isCI, 'Skipping in CI - requires localhost:3000 to be running');
+
         const username = testData.validCredentials.username;
         const password = testData.validCredentials.password;
         const authUrl = testData.keycloakAuthUrl;
@@ -26,7 +33,6 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
         });
 
         await test.step('Wait for redirect to application', async () => {
-            // Wait for redirect away from Keycloak
             await page.waitForTimeout(5000);
 
             const currentUrl = page.url();
@@ -53,16 +59,13 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
             if (isOnApp) {
                 console.log('✅ Application URL reached');
 
-                // Wait for page to be interactive
                 await page.waitForLoadState('networkidle').catch(() => {
                     console.log('⚠️ Network not idle, but continuing...');
                 });
 
-                // Check page has content
                 const pageTitle = await page.title();
                 console.log(`📄 Page title: ${pageTitle}`);
 
-                // Take a screenshot for visual verification
                 await page.screenshot({
                     path: 'test-results/dashboard-after-login.png',
                     fullPage: true
@@ -82,7 +85,6 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
         });
 
         await test.step('Verify session is active', async () => {
-            // Check for any session indicators in local storage or cookies
             const cookies = await page.context().cookies();
             const sessionCookies = cookies.filter(c =>
                 c.name.toLowerCase().includes('session') ||
@@ -102,7 +104,11 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
         });
     });
 
+    // Skip logout test in CI as it requires localhost:3000
     test('TC024 - Logout functionality', async ({ page, testData }) => {
+        // Skip in CI - requires localhost:3000
+        test.skip(isCI, 'Skipping in CI - requires localhost:3000 to be running');
+
         const username = testData.validCredentials.username;
         const password = testData.validCredentials.password;
         const authUrl = testData.keycloakAuthUrl;
@@ -114,7 +120,6 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
             await keycloakPage.fillPassword(password);
             await keycloakPage.clickLogin();
 
-            // Wait for login to complete
             await page.waitForTimeout(5000);
 
             const currentUrl = page.url();
@@ -126,7 +131,6 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
         });
 
         await test.step('Find and click logout button', async () => {
-            // Common logout button/link selectors
             const logoutSelectors = [
                 'button:has-text("Logout")',
                 'button:has-text("Log out")',
@@ -139,7 +143,6 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
                 '[class*="logout"]',
                 '.logout-btn',
                 '#logout',
-                // Keycloak specific
                 '#kc-logout',
                 'a[href*="logout"]'
             ];
@@ -163,7 +166,6 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
             }
 
             if (!logoutClicked) {
-                // If no logout button found, try Keycloak direct logout URL
                 console.log('⚠️ No logout button found, trying Keycloak logout URL...');
 
                 const keycloakLogoutUrl = 'https://keycloak-dev.logistical.one/realms/lq/protocol/openid-connect/logout';
@@ -181,13 +183,11 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
             const currentUrl = page.url();
             console.log('📍 URL after logout:', currentUrl);
 
-            // Verify we're back on login page or home page
             const isLoggedOut = currentUrl.includes('keycloak') ||
                 currentUrl.includes('login') ||
                 currentUrl.includes('auth') ||
                 !currentUrl.includes('code=');
 
-            // Check session cookies are cleared
             const cookies = await page.context().cookies();
             const sessionCookies = cookies.filter(c =>
                 c.name.toLowerCase().includes('session') ||
@@ -196,7 +196,6 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
 
             console.log(`🍪 Session cookies after logout: ${sessionCookies.length}`);
 
-            // Take screenshot after logout
             await page.screenshot({
                 path: 'test-results/after-logout.png',
                 fullPage: true
@@ -207,12 +206,10 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
         });
 
         await test.step('Verify cannot access protected resources after logout', async () => {
-            // Try to access the auth URL again
-            await keycloakPage.navigateToLogin(authUrl);
+            await keycloakPage.navigateToLogin(testData.keycloakAuthUrl);
 
             await page.waitForTimeout(2000);
 
-            // Should be redirected to login page
             const isOnLoginPage = await keycloakPage.usernameInput.isVisible().catch(() => false);
 
             if (isOnLoginPage) {
@@ -223,7 +220,11 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
         });
     });
 
+    // Skip session persistence test in CI
     test('TC024b - Session persistence after page refresh', async ({ page, testData }) => {
+        // Skip in CI - requires localhost:3000
+        test.skip(isCI, 'Skipping in CI - requires localhost:3000 to be running');
+
         const username = testData.validCredentials.username;
         const password = testData.validCredentials.password;
         const authUrl = testData.keycloakAuthUrl;
@@ -250,7 +251,6 @@ test.describe('Keycloak Login - Dashboard & Logout Tests', () => {
             const urlAfterRefresh = page.url();
             console.log('📍 URL after refresh:', urlAfterRefresh);
 
-            // Session should persist after refresh
             const sessionPersisted = !urlAfterRefresh.includes('keycloak-dev.logistical.one/realms/lq/protocol/openid-connect/auth');
 
             if (sessionPersisted) {
