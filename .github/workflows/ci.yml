@@ -174,9 +174,9 @@ jobs:
         user_email: 'github-actions[bot]@users.noreply.github.com'
         commit_message: '🚀 Deploy Allure Report - ${{ github.sha }}'
 
-    # Send email notification on failure
-    - name: Send Email Notification (Failure)
-      if: failure() || steps.test-status.outputs.status == 'failed'
+    # Send email notification on EVERY run
+    - name: Send Email Notification
+      if: always()
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: mail.spacemail.com
@@ -184,11 +184,11 @@ jobs:
         secure: true
         username: ${{ secrets.SMTP_USERNAME }}
         password: ${{ secrets.SMTP_PASSWORD }}
-        subject: "❌ Keycloak Tests FAILED - ${{ github.repository }}"
+        subject: "${{ steps.test-status.outputs.status == 'passed' && '✅' || '❌' }} Keycloak Tests ${{ steps.test-status.outputs.status == 'passed' && 'PASSED' || 'FAILED' }} - ${{ github.repository }}"
         to: farid.andika@loglines.co
         from: "GitHub Actions <${{ secrets.SMTP_USERNAME }}>"
         html_body: |
-          <h2>❌ Test Run Failed</h2>
+          <h2>${{ steps.test-status.outputs.status == 'passed' && '✅ Test Run Passed' || '❌ Test Run Failed' }}</h2>
           <p><strong>Repository:</strong> ${{ github.repository }}</p>
           <p><strong>Branch:</strong> ${{ github.ref_name }}</p>
           <p><strong>Commit:</strong> ${{ github.sha }}</p>
@@ -203,35 +203,7 @@ jobs:
           </ul>
           <hr>
           <p>📈 <a href="https://faridandika.github.io/limajari-automation-testing/">View Allure Report</a></p>
-      continue-on-error: true
-
-    # Send email notification on success (scheduled runs only)
-    - name: Send Email Notification (Success - Scheduled)
-      if: success() && github.event_name == 'schedule' && steps.test-status.outputs.status == 'passed'
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: mail.spacemail.com
-        server_port: 465
-        secure: true
-        username: ${{ secrets.SMTP_USERNAME }}
-        password: ${{ secrets.SMTP_PASSWORD }}
-        subject: "✅ Keycloak Tests PASSED - Daily Report"
-        to: farid.andika@loglines.co
-        from: "GitHub Actions <${{ secrets.SMTP_USERNAME }}>"
-        html_body: |
-          <h2>✅ Daily Test Run Passed</h2>
-          <p><strong>Repository:</strong> ${{ github.repository }}</p>
-          <p><strong>Branch:</strong> ${{ github.ref_name }}</p>
-          <p><strong>Time:</strong> ${{ github.event.head_commit.timestamp || 'Scheduled Run' }}</p>
-          <hr>
-          <h3>📊 Test Results:</h3>
-          <ul>
-            <li>✅ Passed: ${{ steps.test-status.outputs.passed }}</li>
-            <li>⏭️ Skipped: ${{ steps.test-status.outputs.skipped }}</li>
-          </ul>
-          <hr>
-          <p>📈 <a href="https://faridandika.github.io/limajari-automation-testing/">View Allure Report</a></p>
-          <p style="color: #666; font-size: 12px;">This is an automated daily test report from your CI pipeline.</p>
+          <p style="color: #666; font-size: 12px;">This is an automated notification from your CI pipeline.</p>
       continue-on-error: true
 
     - name: Display Report URLs
