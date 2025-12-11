@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [ main ]
 
+# Cancel in-progress runs when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   pages: write
@@ -16,32 +21,75 @@ jobs:
   test-and-deploy:
     # Using GitHub-hosted runner
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # Prevent stuck jobs
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        
+        cache: 'npm'  # Built-in npm caching
+
+    # Cache Playwright browsers
+    - name: Get Playwright version
+      id: playwright-version
+      run: echo "version=$(npm show playwright version)" >> $GITHUB_OUTPUT
+
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+        restore-keys: |
+          playwright-${{ runner.os }}-
+
     - name: Install dependencies
       run: npm ci
-      
+
     - name: Install Playwright browsers
-      run: npx playwright install chromium
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: npx playwright install chromium --with-deps
       
-    - name: Install Allure CLI
+    - name: Install Playwright dependencies only
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      run: npx playwright install-deps chromium
+
+    # Cache Allure CLI
+    - name: Cache Allure CLI
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm/_npx
+        key: allure-cli-${{ runner.os }}
+        
+    - name: Ensure Allure results directory
+      run: mkdir -p allure-results
+
+    # Download previous Allure history for trend graphs
+    - name: Download Allure history
+      uses: actions/checkout@v4
+      continue-on-error: true
+      with:
+        ref: gh-pages
+        path: gh-pages-history
+        
+    - name: Restore Allure history
+      continue-on-error: true
       run: |
-        npm install -g allure-commandline || true
-        mkdir -p allure-results
+        if [ -d "gh-pages-history/history" ]; then
+          cp -r gh-pages-history/history allure-results/
+          echo "✅ Allure history restored"
+        else
+          echo "ℹ️ No previous Allure history found"
+        fi
         
     - name: Run Playwright tests
-      run: |
-        npx playwright test --project=chromium --reporter=line,allure-playwright
+      run: npx playwright test --project=chromium --reporter=line,allure-playwright
       continue-on-error: true
       env:
         KEYCLOAK_USERNAME: ${{ secrets.KEYCLOAK_USERNAME }}
@@ -50,19 +98,41 @@ jobs:
         
     - name: Generate Allure Report
       if: always()
-      run: |
-        npx allure generate allure-results --clean --output allure-report || true
+      run: npx allure generate allure-results --clean --output allure-report || true
         
     - name: Prepare report for GitHub Pages
       if: always()
       run: |
         mkdir -p public-report
-        # Copy Allure report (which has its own index.html)
         cp -r allure-report/* public-report/ || true
-        # Add .nojekyll to prevent Jekyll processing
         touch public-report/.nojekyll
         echo "📂 Report files ready for deployment:"
         ls -la public-report/
+
+    # Upload artifacts for debugging
+    - name: Upload Playwright Report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 14
+
+    - name: Upload Allure Report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: allure-report
+        path: allure-report/
+        retention-days: 14
+
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: test-results/
+        retention-days: 7
 
     - name: Deploy to GitHub Pages
       if: always() && github.ref == 'refs/heads/main'
@@ -79,15 +149,21 @@ jobs:
       if: always()
       run: |
         echo "=============================================="
-        echo "✅ DEPLOYMENT COMPLETED!"
+        echo "✅ WORKFLOW COMPLETED!"
         echo "=============================================="
         echo ""
         echo "🌐 PUBLIC ALLURE REPORT:"
         echo "   https://faridandika.github.io/limajari-automation-testing/"
         echo ""
-        echo "📂 LOCAL REPORTS:"
-        echo "   Allure: $(pwd)/allure-report"
-        echo "   Playwright: $(pwd)/playwright-report"
+        echo "� ARTIFACTS UPLOADED:"
+        echo "   - playwright-report (14 days retention)"
+        echo "   - allure-report (14 days retention)"
+        echo "   - test-results (7 days retention)"
+        echo ""
+        echo "⏱️ CACHING ENABLED:"
+        echo "   - npm dependencies (via setup-node)"
+        echo "   - Playwright browsers"
+        echo "   - Allure CLI"
         echo "=============================================="
 
     - name: Show Test Summary
