@@ -1,0 +1,5 @@
+📊 Page load time: 2087ms
+📊 Maximum allowed: 5000ms
+📊 Environment: CI
+✅ Login page loaded within acceptable time
+✅ All form elements are interactive
