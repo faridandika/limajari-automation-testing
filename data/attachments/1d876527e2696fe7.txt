@@ -1,0 +1,4 @@
+📊 Login response time: 392ms
+📊 Maximum allowed: 10000ms
+📊 Environment: CI
+✅ Login completed within acceptable time
