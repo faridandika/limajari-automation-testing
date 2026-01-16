@@ -1,0 +1,13 @@
+📊 DOM Content Loaded: 174.26s
+📊 All Performance Metrics:
+   - Timestamp: 177.0998
+   - AudioHandlers: 0.0000
+   - AudioWorkletProcessors: 0.0000
+   - Documents: 5.0000
+   - Frames: 2.0000
+   - JSEventListeners: 149.0000
+   - LayoutObjects: 62.0000
+   - MediaKeySessions: 0.0000
+   - MediaKeys: 0.0000
+   - Nodes: 139.0000
+✅ Performance metrics collected

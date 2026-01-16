@@ -1,0 +1,1 @@
+✅ Login correctly rejected empty username
